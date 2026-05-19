@@ -1,30 +1,38 @@
-const script = document.createElement('script');
-script.src = chrome.runtime.getURL('page-interceptor.js');
-script.onload = function () {
-  this.remove();
-};
-(document.head || document.documentElement).appendChild(script);
+let currentSlug = '';
+let lastModelKey = '';
 
-let lastKey = '';
+function getSlugFromURL(url) {
+  try {
+    const u = new URL(url);
+    const match = u.pathname.match(/^\/search\/([^/?#]+)/);
+    return match ? match[1] : '';
+  } catch (e) {
+    return '';
+  }
+}
 
 function deepFindModels(obj) {
-  let found = {};
+  let result = null;
   function walk(v) {
-    if (!v) return;
-    if (typeof v === 'object') {
-      if ('display_model' in v && typeof v.display_model === 'string')
-        found.display_model = v.display_model;
-      if ('user_selected_model' in v && typeof v.user_selected_model === 'string')
-        found.user_selected_model = v.user_selected_model;
-      if (found.display_model && found.user_selected_model) return;
-      for (const key in v) {
+    if (!v || typeof v !== 'object') return;
+    var hasDM = 'display_model' in v && typeof v.display_model === 'string';
+    var hasUS = 'user_selected_model' in v && typeof v.user_selected_model === 'string';
+    if (hasDM || hasUS) {
+      result = {
+        display_model: hasDM ? v.display_model : null,
+        user_selected_model: hasUS ? v.user_selected_model : null,
+      };
+    }
+    if (Array.isArray(v)) {
+      for (var i = 0; i < v.length; i++) walk(v[i]);
+    } else {
+      for (var key in v) {
         if (Object.prototype.hasOwnProperty.call(v, key)) walk(v[key]);
-        if (found.display_model && found.user_selected_model) return;
       }
     }
   }
   walk(obj);
-  return found;
+  return result;
 }
 
 function extractModelsFromText(text) {
@@ -32,39 +40,37 @@ function extractModelsFromText(text) {
     return null;
 
   try {
-    const json = JSON.parse(text);
-    const f = deepFindModels(json);
-    if (f.display_model || f.user_selected_model) return f;
+    var json = JSON.parse(text);
+    var found = deepFindModels(json);
+    if (found) return found;
   } catch (_) {}
 
-  const dm = /"display_model"\s*:\s*"([^"]+)"/.exec(text);
-  const us = /"user_selected_model"\s*:\s*"([^"]+)"/.exec(text);
-  if (dm || us)
+  var dm = /"display_model"\s*:\s*"([^"]+)"/.exec(text);
+  var us = /"user_selected_model"\s*:\s*"([^"]+)"/.exec(text);
+  if (dm || us) {
     return {
       display_model: dm ? dm[1] : null,
       user_selected_model: us ? us[1] : null,
     };
-
+  }
   return null;
 }
 
-// Listen for messages from the page script (no event.source check —
-// it can be null or differ across Chrome versions for injected scripts)
-window.addEventListener('message', function (event) {
-  var d = event.data;
-  if (!d || d.__mw !== true) return;
-
-  if (d.type === 'MODEL_TEXT') {
-    var models = extractModelsFromText(d.text);
+async function checkModels() {
+  if (!currentSlug) return;
+  try {
+    var res = await fetch(
+      'https://www.perplexity.ai/rest/thread/' + encodeURIComponent(currentSlug),
+      { credentials: 'include', headers: { accept: 'application/json' } }
+    );
+    if (!res.ok) return;
+    var text = await res.text();
+    var models = extractModelsFromText(text);
     if (!models) return;
 
-    var key =
-      (models.display_model || '') +
-      '|' +
-      (models.user_selected_model || '');
-    // Always send if models differ from what we last saw
-    if (key === lastKey) return;
-    lastKey = key;
+    var key = (models.display_model || '') + '|' + (models.user_selected_model || '');
+    if (key === lastModelKey) return;
+    lastModelKey = key;
 
     chrome.runtime.sendMessage({
       type: 'MODEL_MISMATCH_UPDATE',
@@ -74,17 +80,39 @@ window.addEventListener('message', function (event) {
         matched: models.display_model === models.user_selected_model,
       },
     });
-  } else if (d.type === 'URL_CHANGE') {
-    lastKey = '';
+  } catch (_) {}
+}
+
+function onURLChange() {
+  var slug = getSlugFromURL(location.href);
+  if (slug !== currentSlug) {
+    currentSlug = slug;
+    lastModelKey = '';
+    if (slug) {
+      setTimeout(checkModels, 500);
+    }
   }
-});
+}
+
+// Poll for URL changes (detects SPA navigation)
+setInterval(onURLChange, 1000);
+
+// Poll for model changes in current chat (detects new messages)
+setInterval(checkModels, 3000);
+
+// Initial check
+onURLChange();
 
 // Handle popup requests for rate limits
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
   if (message.type === 'FETCH_RATE_LIMITS') {
     fetchRateLimits()
-      .then(function (data) { sendResponse({ success: true, data: data }); })
-      .catch(function (err) { sendResponse({ success: false, error: err.message }); });
+      .then(function (data) {
+        sendResponse({ success: true, data: data });
+      })
+      .catch(function (err) {
+        sendResponse({ success: false, error: err.message });
+      });
     return true;
   }
   return false;
@@ -95,8 +123,6 @@ async function fetchRateLimits() {
     credentials: 'include',
     headers: { accept: 'application/json' },
   });
-  if (!res.ok) {
-    throw new Error('HTTP ' + res.status);
-  }
+  if (!res.ok) throw new Error('HTTP ' + res.status);
   return res.json();
 }

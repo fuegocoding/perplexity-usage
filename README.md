@@ -19,13 +19,13 @@ Cards display `used / total` (e.g. `5 / 170`) with `165 left` and a Perplexity-t
 
 ### Model Mismatch Detection
 
-Continuously intercepts Perplexity network responses to compare `display_model` vs `user_selected_model`:
+Reads the `/rest/thread/{slug}` endpoint for the current chat every 3 seconds and extracts `display_model` vs `user_selected_model` from the latest message:
 
 - **Green dot** on the extension icon — models match
 - **Red dot** on the extension icon — mismatch detected
 - Inside the popup: a status chip shows **Model OK** or **Model Mismatch** with the exact model names
 
-Based on the [perplexity-model-watcher](https://github.com/apix7/perplexity-model-watcher) interception technique, with regex fallback for streaming/chunked responses and automatic re-hooking if Perplexity overwrites `fetch`.
+Updates automatically when you send a new message or switch chats.
 
 ## Installation
 
@@ -38,20 +38,27 @@ Based on the [perplexity-model-watcher](https://github.com/apix7/perplexity-mode
 
 ## How It Works
 
-| Component | Purpose |
-|---|---|
-| `manifest.json` | Chrome MV3 manifest |
-| `background.js` | Stores model mismatch state, swaps icon between default/green/red |
-| `content-script.js` | Bridges page context ↔ extension, fetches `/rest/rate-limit/all` on demand |
-| `page-interceptor.js` | Hooks `fetch`/`XHR` in page context, detects `display_model`/`user_selected_model` with regex fallback |
-| `popup.html` / `popup.css` / `popup.js` | Dark Perplexity-styled popup UI |
-| `icon*.png` | Speedometer gauge icons (base, green dot, red dot) |
+```
+├── background.js          — Stores model state, swaps icon dots
+├── content-script.js      — Detects URL changes, polls /rest/thread for model info,
+│                            fetches rate limits on demand
+├── manifest.json          — Chrome MV3 manifest
+├── icons/                 — Speedometer gauge icons (base, green dot, red dot)
+└── popup/
+    ├── popup.html         — Popup UI
+    ├── popup.css          — Perplexity-styled dark theme
+    └── popup.js           — Fetches/caches usage data, renders UI
+```
+
+**Rate limits**: The popup fetches `/rest/rate-limit/all` directly using host permissions and credentials. No Perplexity tab required.
+
+**Model detection**: The content script on Perplexity pages extracts the chat slug from the URL, fetches `/rest/thread/{slug}`, and walks the response JSON to find the latest `display_model` and `user_selected_model` fields. It polls every 3 seconds and detects URL changes every second for SPA navigation.
 
 ### Privacy
 
 - No data is sent anywhere. All processing is local.
 - Rate limit data is only fetched when you open the popup — no background polling.
-- The only network requests made are to `perplexity.ai` itself (same-origin, using your existing cookies).
+- The only network requests made are to `perplexity.ai` itself (using your existing session).
 
 ## Data Source
 
@@ -61,16 +68,10 @@ Usage data comes from:
 https://www.perplexity.ai/rest/rate-limit/all
 ```
 
-This endpoint returns JSON like:
+Model data comes from:
 
-```json
-{
-  "remaining_pro": 170,
-  "remaining_labs": 25,
-  "remaining_research": 20,
-  "model_specific_limits": {},
-  "sources": { ... }
-}
+```
+https://www.perplexity.ai/rest/thread/{chat-slug}
 ```
 
 ## License

@@ -2,19 +2,19 @@ const MODEL_STATE_KEY = 'modelWatcherState';
 const CACHE_KEY = 'rateLimitCache';
 
 const ICONS_DEFAULT = {
-  16: 'icon16.png',
-  48: 'icon48.png',
-  128: 'icon128.png',
+  16: 'icons/icon16.png',
+  48: 'icons/icon48.png',
+  128: 'icons/icon128.png',
 };
 const ICONS_GREEN = {
-  16: 'icon16-green.png',
-  48: 'icon48-green.png',
-  128: 'icon128-green.png',
+  16: 'icons/icon16-green.png',
+  48: 'icons/icon48-green.png',
+  128: 'icons/icon128-green.png',
 };
 const ICONS_RED = {
-  16: 'icon16-red.png',
-  48: 'icon48-red.png',
-  128: 'icon128-red.png',
+  16: 'icons/icon16-red.png',
+  48: 'icons/icon48-red.png',
+  128: 'icons/icon128-red.png',
 };
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
