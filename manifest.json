@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Perplexity Usage & Model Watcher",
+  "name": "Unofficial Perplexity Usage & Model Watcher",
   "version": "1.2.0",
   "description": "View your Perplexity usage limits and detect model mismatches.",
   "permissions": [
