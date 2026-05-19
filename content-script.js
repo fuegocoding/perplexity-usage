@@ -5,7 +5,7 @@ script.onload = function () {
 };
 (document.head || document.documentElement).appendChild(script);
 
-const STATE_KEY = 'mw_lastKey';
+let lastKey = '';
 
 function deepFindModels(obj) {
   let found = {};
@@ -48,24 +48,21 @@ function extractModelsFromText(text) {
   return null;
 }
 
-let lastKey = '';
-
-// Listen for messages from the page script
-window.addEventListener('message', (event) => {
-  if (event.source !== window) return;
-  const d = event.data;
+// Listen for messages from the page script (no event.source check —
+// it can be null or differ across Chrome versions for injected scripts)
+window.addEventListener('message', function (event) {
+  var d = event.data;
   if (!d || d.__mw !== true) return;
 
   if (d.type === 'MODEL_TEXT') {
-    const models = extractModelsFromText(d.text);
+    var models = extractModelsFromText(d.text);
     if (!models) return;
 
-    const key =
-      location.href +
-      '|' +
+    var key =
       (models.display_model || '') +
       '|' +
       (models.user_selected_model || '');
+    // Always send if models differ from what we last saw
     if (key === lastKey) return;
     lastKey = key;
 
@@ -83,22 +80,20 @@ window.addEventListener('message', (event) => {
 });
 
 // Handle popup requests for rate limits
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
   if (message.type === 'FETCH_RATE_LIMITS') {
     fetchRateLimits()
-      .then((data) => sendResponse({ success: true, data }))
-      .catch((err) => sendResponse({ success: false, error: err.message }));
+      .then(function (data) { sendResponse({ success: true, data: data }); })
+      .catch(function (err) { sendResponse({ success: false, error: err.message }); });
     return true;
   }
   return false;
 });
 
 async function fetchRateLimits() {
-  const res = await fetch('https://www.perplexity.ai/rest/rate-limit/all', {
+  var res = await fetch('https://www.perplexity.ai/rest/rate-limit/all', {
     credentials: 'include',
-    headers: {
-      accept: 'application/json',
-    },
+    headers: { accept: 'application/json' },
   });
   if (!res.ok) {
     throw new Error('HTTP ' + res.status);

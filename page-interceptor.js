@@ -4,7 +4,7 @@
   if (window.__perplexityInterceptorInstalled) return;
   window.__perplexityInterceptorInstalled = true;
 
-  // Save the original native fetch before anything can overwrite it
+  // Grab the REAL native fetch before anything can overwrite it
   const _nativeFetch = window.fetch;
 
   function postToContentScript(text) {
@@ -16,25 +16,28 @@
     } catch (_) {}
   }
 
-  // Hook fetch — always calls the saved native fetch, not the current window.fetch
-  // This avoids creating nested wrappers when Perplexity overwrites window.fetch
-  const origFetch = _nativeFetch.bind(window);
-  window.fetch = function (...args) {
-    return origFetch(...args).then((res) => {
-      try {
-        const clone = res.clone();
-        clone
-          .text()
-          .then((text) => {
-            if (text && (text.includes('display_model') || text.includes('user_selected_model'))) {
-              postToContentScript(text);
-            }
-          })
-          .catch(() => {});
-      } catch (_) {}
-      return res;
-    });
-  };
+  function hookFetch() {
+    const wrapper = function (...args) {
+      // Always call the original native fetch — bypasses any wrapper Perplexity adds
+      return _nativeFetch.apply(this, args).then((res) => {
+        try {
+          const clone = res.clone();
+          clone
+            .text()
+            .then((text) => {
+              if (text && (text.includes('display_model') || text.includes('user_selected_model'))) {
+                postToContentScript(text);
+              }
+            })
+            .catch(() => {});
+        } catch (_) {}
+        return res;
+      });
+    };
+    // Marker so we can detect if someone replaced our hook
+    wrapper.__perplexityInterceptor = true;
+    window.fetch = wrapper;
+  }
 
   function hookXHR() {
     const XHR = window.XMLHttpRequest;
@@ -93,7 +96,15 @@
   }
 
   try {
+    hookFetch();
     hookXHR();
     hookHistory();
   } catch (_) {}
+
+  // Re-hook fetch if Perplexity or another script overwrites it
+  setInterval(function () {
+    if (!window.fetch || !window.fetch.__perplexityInterceptor) {
+      hookFetch();
+    }
+  }, 2000);
 })();
