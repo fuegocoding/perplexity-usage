@@ -1,4 +1,5 @@
 const MODEL_STATE_KEY = 'modelWatcherState';
+const CACHE_KEY = 'rateLimitCache';
 
 const ICONS_DEFAULT = {
   16: 'icon16.png',
@@ -48,6 +49,22 @@ function handleModelUpdate(payload) {
   }
 }
 
+// Restore icon state on service worker startup
 chrome.runtime.onInstalled.addListener(() => {
   chrome.action.setIcon({ path: ICONS_DEFAULT });
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  chrome.storage.local.get([MODEL_STATE_KEY]).then((result) => {
+    const state = result[MODEL_STATE_KEY];
+    if (state) {
+      if (!state.matched) {
+        chrome.action.setIcon({ path: ICONS_RED });
+      } else {
+        chrome.action.setIcon({ path: ICONS_GREEN });
+      }
+    } else {
+      chrome.action.setIcon({ path: ICONS_DEFAULT });
+    }
+  });
 });

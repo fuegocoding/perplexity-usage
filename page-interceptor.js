@@ -4,38 +4,37 @@
   if (window.__perplexityInterceptorInstalled) return;
   window.__perplexityInterceptorInstalled = true;
 
-  function postToContentScript(payload) {
+  // Save the original native fetch before anything can overwrite it
+  const _nativeFetch = window.fetch;
+
+  function postToContentScript(text) {
     try {
       window.postMessage(
-        { __mw: true, type: 'MODEL_TEXT', text: payload },
+        { __mw: true, type: 'MODEL_TEXT', text: text },
         '*'
       );
     } catch (_) {}
   }
 
-  function hookFetch() {
-    const orig = window.fetch;
-    if (!orig) return;
-
-    window.fetch = function (...args) {
-      return orig.apply(this, args).then((res) => {
-        try {
-          const clone = res.clone();
-          clone
-            .text()
-            .then((text) => {
-              if (text && (text.includes('display_model') || text.includes('user_selected_model'))) {
-                postToContentScript(text);
-              }
-            })
-            .catch(() => {});
-        } catch (_) {}
-        return res;
-      });
-    };
-
-    window.__perplexityFetchHooked = window.fetch;
-  }
+  // Hook fetch — always calls the saved native fetch, not the current window.fetch
+  // This avoids creating nested wrappers when Perplexity overwrites window.fetch
+  const origFetch = _nativeFetch.bind(window);
+  window.fetch = function (...args) {
+    return origFetch(...args).then((res) => {
+      try {
+        const clone = res.clone();
+        clone
+          .text()
+          .then((text) => {
+            if (text && (text.includes('display_model') || text.includes('user_selected_model'))) {
+              postToContentScript(text);
+            }
+          })
+          .catch(() => {});
+      } catch (_) {}
+      return res;
+    });
+  };
 
   function hookXHR() {
     const XHR = window.XMLHttpRequest;
@@ -94,14 +93,7 @@
   }
 
   try {
-    hookFetch();
     hookXHR();
     hookHistory();
   } catch (_) {}
-
-  setInterval(() => {
-    if (window.fetch !== window.__perplexityFetchHooked) {
-      hookFetch();
-    }
-  }, 2000);
 })();

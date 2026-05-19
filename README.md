@@ -46,7 +46,6 @@ Based on the [perplexity-model-watcher](https://github.com/apix7/perplexity-mode
 | `page-interceptor.js` | Hooks `fetch`/`XHR` in page context, detects `display_model`/`user_selected_model` with regex fallback |
 | `popup.html` / `popup.css` / `popup.js` | Dark Perplexity-styled popup UI |
 | `icon*.png` | Speedometer gauge icons (base, green dot, red dot) |
-| `scripts/generate-icons.js` | Node.js script to regenerate icons from scratch |
 
 ### Privacy
 
@@ -73,18 +72,6 @@ This endpoint returns JSON like:
   "sources": { ... }
 }
 ```
-
-## Development
-
-### Regenerating Icons
-
-Requires Node.js (no external dependencies):
-
-```bash
-node scripts/generate-icons.js
-```
-
-This produces `icon16.png`, `icon48.png`, `icon128.png` and their `-green` / `-red` variants.
 
 ## License
 

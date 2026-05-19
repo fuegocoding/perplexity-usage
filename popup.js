@@ -1,4 +1,5 @@
 const STORAGE_TOTALS_KEY = 'inferredTotals';
+const CACHE_KEY = 'rateLimitCache';
 
 const METRICS = [
   { key: 'pro', field: 'remaining_pro', label: 'Pro Search' },
@@ -24,6 +25,7 @@ async function init() {
     renderModelStatus(modelState);
     await renderUsage(rateData);
     renderModelSpecificLimits(rateData.model_specific_limits);
+    renderLastUpdated();
   } catch (err) {
     showError(err.message || 'Failed to load data.');
   }
@@ -51,43 +53,62 @@ function hideError() {
 }
 
 async function fetchRateLimits() {
-  // Find a Perplexity tab to send the request from (same-origin cookies)
-  let tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  let targetTab = tabs.find((t) => t.url && t.url.includes('perplexity.ai'));
-
-  if (!targetTab) {
-    const pTabs = await chrome.tabs.query({ url: 'https://*.perplexity.ai/*' });
-    if (!pTabs || pTabs.length === 0) {
-      throw new Error(
-        'No Perplexity.ai tab found. Please open Perplexity and try again.'
-      );
+  // 1. Try direct fetch from popup (works with host permissions + credentials)
+  try {
+    const response = await fetch('https://www.perplexity.ai/rest/rate-limit/all', {
+      credentials: 'include',
+      headers: { accept: 'application/json' },
+    });
+    if (response.ok) {
+      const data = await response.json();
+      await chrome.storage.local.set({
+        [CACHE_KEY]: { data, timestamp: Date.now() },
+      });
+      return data;
     }
-    targetTab = pTabs[0];
+  } catch (_) {
+    // Direct fetch failed, try content script fallback
   }
 
-  return new Promise((resolve, reject) => {
-    chrome.tabs.sendMessage(
-      targetTab.id,
-      { type: 'FETCH_RATE_LIMITS' },
-      (response) => {
-        if (chrome.runtime.lastError) {
-          reject(
-            new Error(
-              'Unable to connect to the Perplexity page. Try refreshing the tab.'
-            )
-          );
-          return;
-        }
-        if (!response || !response.success) {
-          reject(
-            new Error(response?.error || 'Failed to fetch rate limits.')
-          );
-          return;
-        }
-        resolve(response.data);
-      }
-    );
-  });
+  // 2. Try content script on a Perplexity tab
+  try {
+    const tabs = await chrome.tabs.query({ url: 'https://*.perplexity.ai/*' });
+    if (tabs.length > 0) {
+      const data = await new Promise((resolve, reject) => {
+        chrome.tabs.sendMessage(
+          tabs[0].id,
+          { type: 'FETCH_RATE_LIMITS' },
+          (response) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+              return;
+            }
+            if (!response || !response.success) {
+              reject(new Error(response?.error || 'Failed to fetch rate limits.'));
+              return;
+            }
+            resolve(response.data);
+          }
+        );
+      });
+      await chrome.storage.local.set({
+        [CACHE_KEY]: { data, timestamp: Date.now() },
+      });
+      return data;
+    }
+  } catch (_) {
+    // Content script failed, try cache
+  }
+
+  // 3. Fall back to cached data
+  const stored = await chrome.storage.local.get([CACHE_KEY]);
+  if (stored[CACHE_KEY] && stored[CACHE_KEY].data) {
+    return stored[CACHE_KEY].data;
+  }
+
+  throw new Error(
+    'Could not fetch usage data. Make sure you are logged into Perplexity.ai.'
+  );
 }
 
 function getModelState() {
@@ -256,6 +277,20 @@ function renderModelSpecificLimits(limits) {
   } else {
     section.classList.add('hidden');
   }
+}
+
+function renderLastUpdated() {
+  const el = document.getElementById('last-updated');
+  chrome.storage.local.get([CACHE_KEY]).then((result) => {
+    const cache = result[CACHE_KEY];
+    if (cache && cache.timestamp) {
+      const date = new Date(cache.timestamp);
+      el.textContent = 'Updated ' + date.toLocaleTimeString();
+      el.classList.remove('hidden');
+    } else {
+      el.classList.add('hidden');
+    }
+  });
 }
 
 function escapeHtml(text) {
