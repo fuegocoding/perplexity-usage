@@ -11,17 +11,32 @@ function getSlugFromURL(url) {
   }
 }
 
-function deepFindModels(obj) {
-  let result = null;
+function isValidModelName(name) {
+  if (!name || typeof name !== 'string') return false;
+  var s = name.toLowerCase().trim();
+  if (!s) return false;
+  // Filter out non-model values like "turbo", "fast", etc.
+  // Real Perplexity model names contain "/" or "." or match known patterns
+  // e.g. "sonar", "sonar-pro", "gpt-4o", "claude-3.5-sonet", "o3-mini"
+  var knownModels = /^(sonar|sonar-pro|sonar-reasoning|sonar-reasoning-pro|sonar-deep-research|sonar-deep|gpt-4o|gpt-4\.5|o3-mini|o4-mini|claude-3\.5-sonnet|claude-3\.5-haiku|claude-4-sonnet|claude-4-opus|gemini-2\.5-pro|gemini-2\.5-flash|grok-3|grok-3-mini|mistral-large|llama-4-maverick|dbrx|deepseek-r1|deepseek-chat|r1|pro-search|pro-labs|deep-research|agentic)$/i;
+  if (knownModels.test(s)) return true;
+  if (s.includes('/') || s.includes('.') || s.includes('-')) return true;
+  // Single-word names like "turbo", "fast", "auto" are not real model IDs
+  return false;
+}
+
+function deepFindLastModels(obj) {
+  var results = [];
   function walk(v) {
     if (!v || typeof v !== 'object') return;
     var hasDM = 'display_model' in v && typeof v.display_model === 'string';
     var hasUS = 'user_selected_model' in v && typeof v.user_selected_model === 'string';
     if (hasDM || hasUS) {
-      result = {
-        display_model: hasDM ? v.display_model : null,
-        user_selected_model: hasUS ? v.user_selected_model : null,
-      };
+      var dm = hasDM ? v.display_model : null;
+      var us = hasUS ? v.user_selected_model : null;
+      if (isValidModelName(dm) || isValidModelName(us)) {
+        results.push({ display_model: dm, user_selected_model: us });
+      }
     }
     if (Array.isArray(v)) {
       for (var i = 0; i < v.length; i++) walk(v[i]);
@@ -32,7 +47,7 @@ function deepFindModels(obj) {
     }
   }
   walk(obj);
-  return result;
+  return results.length > 0 ? results[results.length - 1] : null;
 }
 
 function extractModelsFromText(text) {
@@ -41,17 +56,23 @@ function extractModelsFromText(text) {
 
   try {
     var json = JSON.parse(text);
-    var found = deepFindModels(json);
+    var found = deepFindLastModels(json);
     if (found) return found;
   } catch (_) {}
 
-  var dm = /"display_model"\s*:\s*"([^"]+)"/.exec(text);
-  var us = /"user_selected_model"\s*:\s*"([^"]+)"/.exec(text);
-  if (dm || us) {
-    return {
-      display_model: dm ? dm[1] : null,
-      user_selected_model: us ? us[1] : null,
-    };
+  // Regex fallback: find ALL matches, take the last (most recent)
+  var dmRegex = /"display_model"\s*:\s*"([^"]+)"/g;
+  var usRegex = /"user_selected_model"\s*:\s*"([^"]+)"/g;
+  var dmMatch = null, lastDm = null;
+  while ((dmMatch = dmRegex.exec(text)) !== null) {
+    if (isValidModelName(dmMatch[1])) lastDm = dmMatch[1];
+  }
+  var usMatch = null, lastUs = null;
+  while ((usMatch = usRegex.exec(text)) !== null) {
+    if (isValidModelName(usMatch[1])) lastUs = usMatch[1];
+  }
+  if (lastDm || lastUs) {
+    return { display_model: lastDm, user_selected_model: lastUs };
   }
   return null;
 }
