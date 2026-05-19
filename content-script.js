@@ -11,14 +11,24 @@ function getSlugFromURL(url) {
   }
 }
 
+// Walk the thread JSON and find the last object that has BOTH
+// display_model AND user_selected_model. Skip partial matches (like
+// "turbo" which only has one field) — they come from quick/internal
+// responses. If no full match exists, fall back to the last partial.
 function deepFindLastModels(obj) {
-  var results = [];
+  var fullMatches = [];
+  var partialMatches = [];
   function walk(v) {
     if (!v || typeof v !== 'object') return;
     var hasDM = 'display_model' in v && v.display_model != null;
     var hasUS = 'user_selected_model' in v && v.user_selected_model != null;
-    if (hasDM || hasUS) {
-      results.push({
+    if (hasDM && hasUS) {
+      fullMatches.push({
+        display_model: String(v.display_model),
+        user_selected_model: String(v.user_selected_model),
+      });
+    } else if (hasDM || hasUS) {
+      partialMatches.push({
         display_model: hasDM ? String(v.display_model) : null,
         user_selected_model: hasUS ? String(v.user_selected_model) : null,
       });
@@ -32,7 +42,11 @@ function deepFindLastModels(obj) {
     }
   }
   walk(obj);
-  return results.length > 0 ? results[results.length - 1] : null;
+  // Prefer the last full match (both fields = real model record)
+  if (fullMatches.length > 0) return fullMatches[fullMatches.length - 1];
+  // Fall back to last partial match
+  if (partialMatches.length > 0) return partialMatches[partialMatches.length - 1];
+  return null;
 }
 
 function extractModelsFromText(text) {
@@ -45,17 +59,28 @@ function extractModelsFromText(text) {
     if (found) return found;
   } catch (_) {}
 
-  // Regex fallback: find ALL matches, take the last (most recent)
+  // Regex fallback: find ALL pairs, prefer last pair where both fields are present
+  var pairRegex = /"display_model"\s*:\s*"([^"]+)"[^}]*?"user_selected_model"\s*:\s*"([^"]+)"|[^}]*?"display_model"\s*:\s*"([^"]+)"[^}]*?"user_selected_model"\s*:\s*"([^"]+)"/g;
+  var lastFullDm = null, lastFullUs = null;
+  var lastDm = null, lastUs = null;
+  var pm;
+  while ((pm = pairRegex.exec(text)) !== null) {
+    var dm = pm[1] || pm[3] || null;
+    var us = pm[2] || pm[4] || null;
+    if (dm && us) {
+      lastFullDm = dm;
+      lastFullUs = us;
+    }
+  }
+  if (lastFullDm || lastFullUs) {
+    return { display_model: lastFullDm, user_selected_model: lastFullUs };
+  }
+  // Fall back to last occurrence of each field individually
   var dmRegex = /"display_model"\s*:\s*"([^"]+)"/g;
   var usRegex = /"user_selected_model"\s*:\s*"([^"]+)"/g;
-  var dmMatch = null, lastDm = null;
-  while ((dmMatch = dmRegex.exec(text)) !== null) {
-    lastDm = dmMatch[1];
-  }
-  var usMatch = null, lastUs = null;
-  while ((usMatch = usRegex.exec(text)) !== null) {
-    lastUs = usMatch[1];
-  }
+  var m;
+  while ((m = dmRegex.exec(text)) !== null) { lastDm = m[1]; }
+  while ((m = usRegex.exec(text)) !== null) { lastUs = m[1]; }
   if (lastDm || lastUs) {
     return { display_model: lastDm, user_selected_model: lastUs };
   }
