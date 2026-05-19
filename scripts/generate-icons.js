@@ -76,7 +76,7 @@ function drawBackground(x, y, s) {
 
 function drawGauge(x, y, s) {
   const cx = s * 0.5;
-  const cy = s * 0.52;
+  const cy = s * 0.5;
   const outerR = s * 0.42;
   const innerR = s * 0.30;
   const lineW = Math.max(1, s / 20);
