@@ -1,6 +1,6 @@
 # Perplexity Usage & Model Watcher
 
-A Chrome extension that displays your Perplexity.ai usage limits in a clean, dark UI — and detects model mismatches in real time.
+A Chrome extension that displays your Perplexity.ai usage limits in a clean UI — with light/dark mode that follows your device theme — and detects model mismatches in real time.
 
 ## Features
 
@@ -29,6 +29,10 @@ Updates automatically when you send a new message or switch chats.
 
 ## Installation
 
+### Chrome Web Store
+[Install from the Chrome Web Store](https://chromewebstore.google.com/detail/eginpieajmffnlceanahoekihepncjij?utm_source=item-share-cb)
+
+### Manual (Developer Mode)
 1. Clone this repo or download and extract the ZIP
 2. Open Chrome and navigate to `chrome://extensions`
 3. Enable **Developer mode** (top-right toggle)
@@ -46,7 +50,7 @@ Updates automatically when you send a new message or switch chats.
 ├── icons/                 — Speedometer gauge icons (base, green dot, red dot)
 └── popup/
     ├── popup.html         — Popup UI
-    ├── popup.css          — Perplexity-styled dark theme
+    ├── popup.css          — Light/dark theme (follows device preference)
     └── popup.js           — Fetches/caches usage data, renders UI
 ```
 
