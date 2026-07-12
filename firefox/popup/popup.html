@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Perplexity Usage</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="header-main">
+        <h1>Perplexity Usage</h1>
+        <div id="model-status" class="model-status hidden">
+          <span class="status-dot"></span>
+          <span class="status-label">Model Mismatch</span>
+        </div>
+      </div>
+      <div id="model-detail" class="model-detail hidden"></div>
+    </header>
+
+    <main id="main-content">
+      <div id="loading" class="loading">Loading…</div>
+      <div id="error" class="error hidden"></div>
+      <div id="cards" class="cards hidden"></div>
+      <div id="model-limits-section" class="section hidden">
+        <h2 class="section-title">Model Limits</h2>
+        <div id="model-limits-cards" class="cards"></div>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <span id="last-updated" class="last-updated hidden"></span>
+      <button id="refresh-btn" class="refresh-btn" title="Refresh">Refresh</button>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -145,15 +145,67 @@ function renderModelStatus(state) {
   dot.style.background = '';
   label.textContent = isOk ? 'Model OK' : 'Model Mismatch';
 
-  detailEl.innerHTML = `
-    Display: <code>${escapeHtml(state.displayModel)}</code>
-    · Selected: <code>${escapeHtml(state.userSelectedModel)}</code>
-  `;
+  detailEl.textContent = '';
+  const c1 = document.createElement('code');
+  c1.textContent = state.displayModel;
+  const c2 = document.createElement('code');
+  c2.textContent = state.userSelectedModel;
+  detailEl.append('Display: ', c1, ' · Selected: ', c2);
+}
+
+function createCardElement(title, remaining, total) {
+  const card = document.createElement('div');
+  card.className = 'card';
+
+  const header = document.createElement('div');
+  header.className = 'card-header';
+
+  const titleSpan = document.createElement('span');
+  titleSpan.className = 'card-title';
+  titleSpan.textContent = title;
+  header.appendChild(titleSpan);
+
+  const valueSpan = document.createElement('span');
+  valueSpan.className = 'card-value';
+  if (total > 0) {
+    const used = total - remaining;
+    const usedEl = document.createElement('span');
+    usedEl.textContent = used;
+    valueSpan.appendChild(usedEl);
+    const totalEl = document.createElement('span');
+    totalEl.className = 'total';
+    totalEl.textContent = ` / ${total}`;
+    valueSpan.appendChild(totalEl);
+  } else {
+    valueSpan.textContent = remaining;
+  }
+  header.appendChild(valueSpan);
+  card.appendChild(header);
+
+  if (total > 0) {
+    const sub = document.createElement('div');
+    sub.className = 'card-sub';
+    sub.textContent = `${remaining} left`;
+    card.appendChild(sub);
+
+    const used = total - remaining;
+    const pct = Math.max(0, Math.min(100, (used / total) * 100));
+    const fillClass = pct >= 85 ? 'critical' : pct >= 65 ? 'low' : '';
+    const wrap = document.createElement('div');
+    wrap.className = 'progress-wrap';
+    const fill = document.createElement('div');
+    fill.className = `progress-fill ${fillClass}`;
+    fill.style.width = `${pct}%`;
+    wrap.appendChild(fill);
+    card.appendChild(wrap);
+  }
+
+  return card;
 }
 
 async function renderUsage(data) {
   const container = document.getElementById('cards');
-  container.innerHTML = '';
+  container.textContent = '';
 
   const totalsResult = await chrome.storage.local.get([STORAGE_TOTALS_KEY]);
   const totals = totalsResult[STORAGE_TOTALS_KEY] || {};
@@ -172,35 +224,7 @@ async function renderUsage(data) {
 
     const total = totals[metric.key];
     const remaining = val;
-    const used = total > 0 ? total - remaining : 0;
-    const percentage =
-      total > 0 ? Math.max(0, Math.min(100, (used / total) * 100)) : 0;
-
-    const card = document.createElement('div');
-    card.className = 'card';
-
-    let valueHtml = `<span class="card-value">${remaining}</span>`;
-    if (total > 0) {
-      valueHtml = `<span class="card-value">${used}<span class="total"> / ${total}</span></span>`;
-    }
-
-    const subText = total > 0 ? `${remaining} left` : '';
-    const fillClass =
-      percentage >= 85 ? 'critical' : percentage >= 65 ? 'low' : '';
-
-    card.innerHTML = `
-      <div class="card-header">
-        <span class="card-title">${metric.label}</span>
-        ${valueHtml}
-      </div>
-      ${subText ? `<div class="card-sub">${subText}</div>` : ''}
-      ${total > 0 ? `
-        <div class="progress-wrap">
-          <div class="progress-fill ${fillClass}" style="width: ${percentage}%"></div>
-        </div>
-      ` : ''}
-    `;
-
+    const card = createCardElement(metric.label, remaining, total);
     container.appendChild(card);
   }
 
@@ -219,7 +243,7 @@ async function renderUsage(data) {
 function renderModelSpecificLimits(limits) {
   const section = document.getElementById('model-limits-section');
   const container = document.getElementById('model-limits-cards');
-  container.innerHTML = '';
+  container.textContent = '';
 
   if (!limits || typeof limits !== 'object' || Object.keys(limits).length === 0) {
     section.classList.add('hidden');
@@ -231,52 +255,17 @@ function renderModelSpecificLimits(limits) {
     if (!info || typeof info !== 'object') continue;
 
     const remaining = info.remaining;
-    const monthlyLimit = info.monthly_limit;
-
     if (remaining === null || remaining === undefined) continue;
     hasAny = true;
 
-    const card = document.createElement('div');
-    card.className = 'card';
-
+    const monthlyLimit = info.monthly_limit;
     const totalVal =
-      monthlyLimit !== null && monthlyLimit !== undefined ? monthlyLimit : null;
-    const usedVal = totalVal !== null ? totalVal - remaining : null;
-
-    let valueHtml = `<span class="card-value">${remaining}</span>`;
-    if (totalVal !== null) {
-      valueHtml = `<span class="card-value">${usedVal}<span class="total"> / ${totalVal}</span></span>`;
-    }
-
-    const pct =
-      totalVal > 0
-        ? Math.max(0, Math.min(100, (usedVal / totalVal) * 100))
-        : 0;
-    const subText = totalVal !== null ? `${remaining} left` : '';
-    const fillClass =
-      pct >= 85 ? 'critical' : pct >= 65 ? 'low' : '';
-
-    card.innerHTML = `
-      <div class="card-header">
-        <span class="card-title">${escapeHtml(model)}</span>
-        ${valueHtml}
-      </div>
-      ${subText ? `<div class="card-sub">${subText}</div>` : ''}
-      ${totalVal > 0 ? `
-        <div class="progress-wrap">
-          <div class="progress-fill ${fillClass}" style="width: ${pct}%"></div>
-        </div>
-      ` : ''}
-    `;
-
+      monthlyLimit !== null && monthlyLimit !== undefined ? monthlyLimit : 0;
+    const card = createCardElement(model, remaining, totalVal);
     container.appendChild(card);
   }
 
-  if (hasAny) {
-    section.classList.remove('hidden');
-  } else {
-    section.classList.add('hidden');
-  }
+  section.classList.toggle('hidden', !hasAny);
 }
 
 function renderLastUpdated() {
@@ -293,8 +282,3 @@ function renderLastUpdated() {
   });
 }
 
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}

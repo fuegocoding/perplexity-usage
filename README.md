@@ -35,26 +35,53 @@ Updates automatically when you send a new message or switch chats.
 ### Firefox Add-ons
 [Install from Firefox Add-ons](https://addons.mozilla.org/firefox/addon/perplexity-usage-model-watcher/)
 
-### Manual (Developer Mode)
+### Chrome — Manual (Developer Mode)
 1. Clone this repo or download and extract the ZIP
 2. Open Chrome and navigate to `chrome://extensions`
 3. Enable **Developer mode** (top-right toggle)
 4. Click **Load unpacked**
-5. Select the project folder
+5. Select the **`chrome/`** folder
 6. Open any `perplexity.ai` page and click the extension icon
+
+### Firefox / Zen Browser — Temporary Installation (for testing)
+1. Open your browser and navigate to `about:debugging#/runtime/this-firefox`
+2. Click **Load Temporary Add-on**
+3. Select the **`firefox/`** folder
+4. Open any `perplexity.ai` page and click the extension icon
+
+> The extension will be removed when you restart the browser. See below for persistent installation.
+
+### Firefox / Zen Browser — Persistent Installation (Developer Mode)
+1. Open your browser and navigate to `about:config`
+2. Search for `xpinstall.signatures.required` and set it to `false`
+3. Package the extension:
+   ```bash
+   cd firefox && zip -r /tmp/perplexity-usage-firefox.zip .
+   ```
+4. Open your browser and navigate to `about:addons`
+5. Click the gear icon → **Install Add-on From File**
+6. Select `/tmp/perplexity-usage-firefox.zip`
+
+> ⚠️ Setting `xpinstall.signatures.required` to `false` is only recommended for development. For distribution, see **Publishing below**.
 
 ## How It Works
 
 ```
-├── background.js          — Stores model state, swaps icon dots
-├── content-script.js      — Detects URL changes, polls /rest/thread for model info,
-│                            fetches rate limits on demand
-├── manifest.json          — Chrome MV3 manifest
-├── icons/                 — Speedometer gauge icons (base, green dot, red dot)
-└── popup/
-    ├── popup.html         — Popup UI
-    ├── popup.css          — Perplexity-styled dark theme
-    └── popup.js           — Fetches/caches usage data, renders UI
+├── src/                      — Source files (edit here)
+│   ├── background.js         — Stores model state, swaps icon dots
+│   ├── content-script.js     — Detects URL changes, polls /rest/thread for model info,
+│   │                           fetches rate limits on demand
+│   ├── popup/
+│   │   ├── popup.html        — Popup UI
+│   │   ├── popup.css         — Perplexity-styled dark theme
+│   │   └── popup.js          — Fetches/caches usage data, renders UI
+│   └── icons/                — Speedometer gauge icons (base, green dot, red dot)
+├── chrome/
+│   └── manifest.json         — Chrome MV3 manifest (auto-synced from src/)
+├── firefox/
+│   └── manifest.json         — Firefox MV3 manifest (auto-synced from src/)
+└── scripts/
+    └── sync.sh               — Copies src/ → chrome/ and src/ → firefox/
 ```
 
 **Rate limits**: The popup fetches `/rest/rate-limit/all` directly using host permissions and credentials. No Perplexity tab required.
@@ -66,6 +93,20 @@ Updates automatically when you send a new message or switch chats.
 - No data is sent anywhere. All processing is local.
 - Rate limit data is only fetched when you open the popup — no background polling.
 - The only network requests made are to `perplexity.ai` itself (using your existing session).
+
+## Publishing to Firefox Add-ons (AMO)
+
+1. **Create an account** at [addons.mozilla.org](https://addons.mozilla.org)
+2. **Package the extension** (from `firefox/`):
+   ```bash
+   cd firefox && zip -r /tmp/perplexity-usage-firefox.zip .
+   ```
+3. Go to [addons.mozilla.org/developers/addon/submit](https://addons.mozilla.org/developers/addon/submit)
+4. Select **"On your own"** → upload the ZIP
+5. Fill in the store listing (description, screenshots, privacy policy)
+6. Submit for review — Mozilla will auto-review most addons within a few days
+
+> **Note:** The addon ID `hello@fuego.im` is set in `firefox/manifest.json`. Make sure this is the email you use for your AMO developer account, or change it before submission.
 
 ## Data Source
 
