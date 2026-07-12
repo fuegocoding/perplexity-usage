@@ -1,6 +1,6 @@
 # Perplexity Usage & Model Watcher
 
-A Chrome extension that displays your Perplexity.ai usage limits in a clean, dark UI — and detects model mismatches in real time.
+A browser extension that displays your Perplexity.ai usage limits in a clean, dark UI — and detects model mismatches in real time.
 
 ## Features
 
@@ -31,6 +31,9 @@ Updates automatically when you send a new message or switch chats.
 
 ### Chrome Web Store
 [Install from the Chrome Web Store](https://chromewebstore.google.com/detail/eginpieajmffnlceanahoekihepncjij?utm_source=item-share-cb)
+
+### Firefox Add-ons
+[Install from Firefox Add-ons](https://addons.mozilla.org/firefox/addon/perplexity-usage-model-watcher/)
 
 ### Manual (Developer Mode)
 1. Clone this repo or download and extract the ZIP
