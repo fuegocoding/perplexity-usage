@@ -43,24 +43,22 @@ Updates automatically when you send a new message or switch chats.
 5. Select the **`chrome/`** folder
 6. Open any `perplexity.ai` page and click the extension icon
 
-### Firefox / Zen Browser — Temporary Installation (for testing)
-1. Open your browser and navigate to `about:debugging#/runtime/this-firefox`
-2. Click **Load Temporary Add-on**
-3. Select the **`firefox/`** folder
-4. Open any `perplexity.ai` page and click the extension icon
+### Firefox — Temporary Installation (for testing)
+1. Download [`perplexity-usage-firefox-v1.2.1.zip`](https://github.com/fuegocoding/perplexity-usage/releases/download/v1.2.1/perplexity-usage-firefox-v1.2.1.zip)
+2. Open your browser and navigate to `about:debugging#/runtime/this-firefox`
+3. Click **Load Temporary Add-on**
+4. Select the downloaded ZIP file
+5. Open any `perplexity.ai` page and click the extension icon
 
 > The extension will be removed when you restart the browser. See below for persistent installation.
 
-### Firefox / Zen Browser — Persistent Installation (Developer Mode)
-1. Open your browser and navigate to `about:config`
-2. Search for `xpinstall.signatures.required` and set it to `false`
-3. Package the extension:
-   ```bash
-   cd firefox && zip -r /tmp/perplexity-usage-firefox.zip .
-   ```
+### Firefox — Persistent Installation (Developer Mode)
+1. Download [`perplexity-usage-firefox-v1.2.1.zip`](https://github.com/fuegocoding/perplexity-usage/releases/download/v1.2.1/perplexity-usage-firefox-v1.2.1.zip)
+2. Open your browser and navigate to `about:config`
+3. Search for `xpinstall.signatures.required` and set it to `false`
 4. Open your browser and navigate to `about:addons`
 5. Click the gear icon → **Install Add-on From File**
-6. Select `/tmp/perplexity-usage-firefox.zip`
+6. Select the downloaded ZIP file
 
 > ⚠️ Setting `xpinstall.signatures.required` to `false` is only recommended for development. For distribution, see **Publishing below**.
 
